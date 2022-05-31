@@ -1,6 +1,7 @@
 const connection = require('../db-config');
 const Joi = require('joi');
 const argon2 = require('argon2');
+const { calculateToken } = require('../helpers/users');
 
 const db = connection.promise();
 
@@ -30,9 +31,14 @@ const findMany = ({ filters: { language } }) => {
 const findOne = (id) => {
   return db
     .query(
-      'SELECT id, email, firstname, lastname, city, language FROM users WHERE id = ?',
+      'SELECT id, email, firstname, lastname, city, language, token FROM users WHERE id = ?',
       [id]
     )
+    .then(([results]) => results[0]);
+};
+const findByToken = (token) => {
+  return db
+    .query('SELECT * FROM users WHERE token = ?', [token])
     .then(([results]) => results[0]);
 };
 
@@ -50,6 +56,7 @@ const findByEmailWithDifferentId = (email, id) => {
 
 const create = ({ firstname, lastname, city, language, email, password }) => {
   return hashPassword(password).then((hashedPassword) => {
+    const token = calculateToken(email);
     return db
       .query('INSERT INTO users SET ?', {
         firstname,
@@ -58,6 +65,7 @@ const create = ({ firstname, lastname, city, language, email, password }) => {
         language,
         email,
         hashedPassword,
+        token
       })
       .then(([result]) => {
         const id = result.insertId;
@@ -66,7 +74,7 @@ const create = ({ firstname, lastname, city, language, email, password }) => {
   });
 };
 
-const update = (id, newAttributes) => {
+const update = (id, newAttributes, token) => {
   return db.query('UPDATE users SET ? WHERE id = ?', [newAttributes, id]);
 };
 
@@ -98,6 +106,7 @@ module.exports = {
   create,
   update,
   destroy,
+  findByToken,
   findByEmail,
   findByEmailWithDifferentId,
   hashPassword,
